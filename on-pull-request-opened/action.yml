@@ -44,8 +44,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         DIFF_CONTENT: ${{ steps.get_diff.outputs.diff }}
       run: |
-        ls on-pull-request-opened
-        echo '${{ toJson(github.event.pull_request) }}' | jq . | python3 ~/on-pull-request-opened/handler.py > pull_request_description.txt
+        echo '${{ toJson(github.event.pull_request) }}' | jq . | python3 on-pull-request-opened/handler.py > pull_request_description.txt
 
     - name: Extract PR Number
       id: extract_pr_number
