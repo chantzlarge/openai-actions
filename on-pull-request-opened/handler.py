@@ -1,6 +1,7 @@
 # handle_pull_request_opened.py
 
 import json
+import subprocess
 import sys
 import os
 import openai
@@ -9,12 +10,33 @@ import openai
 MAX_LENGTH_DRAFT = 3000
 MAX_LENGTH_DIFF = 3000
 
+def get_git_root():
+    """
+    Get the root directory of the current Git project.
+    """
+    try:
+        git_root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], text=True).strip()
+        return git_root
+    except subprocess.CalledProcessError:
+        raise RuntimeError("Not a git repository or unable to determine git root.")
+
 def load_pr_template(template_path=".github/pull_request_template.md"):
     """
-    Load the pull request template from the given file path.
+    Load the pull request template from the given file path, relative to the Git project root.
+    If the file does not exist, return a default template.
     """
-    with open(template_path, "r") as f:
-        return f.read()
+    try:
+        git_root = get_git_root()
+        full_path = os.path.join(git_root, template_path)
+        if os.path.exists(full_path):
+            with open(full_path, "r") as f:
+                return f.read()
+        else:
+            print(f"Warning: Template file '{full_path}' not found. Using default template.", file=sys.stderr)
+            return "TBD"
+    except RuntimeError as e:
+        print(f"Error determining Git root: {e}", file=sys.stderr)
+        return "TBD"
 
 def integrate_pr_data_into_template(template, pull_request):
     """
