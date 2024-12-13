@@ -1,0 +1,21 @@
+name: Draft Content
+
+description: Uses OpenAI API to draft content based on provided inputs.
+
+inputs:
+  topic:
+    description: 'The topic to draft content about.'
+    required: true
+    type: string
+
+outputs:
+  drafted_content:
+    description: 'The content drafted by OpenAI.'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Draft Content
+      shell: bash
+      run: |
+        ./scripts/draft.sh "${{ inputs.topic }}"
