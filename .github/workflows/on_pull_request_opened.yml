@@ -1,19 +1,18 @@
-# on_pull_request_opened.yml
-
 name: On Pull Request Opened
 on:
   pull_request:
     types: [opened]
 
 jobs:
-  refine_and_update:
+  handle_pull_request_opened:
+    permissions: write-all
     runs-on: ubuntu-latest
     steps:
       - name: Check out
         uses: actions/checkout@v3    
 
       - name: On Pull Request Opened
-        uses: ./on_pull_request_opened
+        uses: ./on-pull-request-opened
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
