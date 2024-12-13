@@ -4,7 +4,8 @@ on:
     types: [opened]
 
 jobs:
-  refine_and_update:
+  handle_pull_request_opened:
+    permissions: write-all
     runs-on: ubuntu-latest
     steps:
       - name: Check out
