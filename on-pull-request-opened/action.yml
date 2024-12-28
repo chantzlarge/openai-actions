@@ -1,61 +1,80 @@
 name: 'On Pull Request Opened'
-description: 'Refine a pull request description using OpenAI and update it on GitHub'
+description: 'Triggers on opening a pull request and performs specific actions.'
+
 inputs:
-  openai_api_key:
-    description: 'OpenAI API key'
-    required: true
   github_token:
-    description: 'GitHub token with permission to update the PR'
+    description: 'GitHub token for authentication.'
     required: true
-branding:
-  color: 'blue'
+  openai_api_key:
+    description: 'OpenAI API key for accessing OpenAI services.'
+    required: true
+  pull_request_template:
+    description: 'Path to the pull request template file.'
+    required: true
+    default: '.github/pull_request_template.md'
 
 runs:
   using: 'composite'
   steps:
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
     - name: Install dependencies
-      run: |
-        python3 -m pip install --upgrade pip
-        pip install openai jq
       shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq curl
 
-    - name: Check out code
+    - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Get diff
-      id: get_diff
-      run: |
-        git fetch origin ${{ github.event.pull_request.base.ref }} --depth=100
-        git fetch origin ${{ github.event.pull_request.head.ref }} --depth=100
-        git diff --shortstat origin/${{ github.event.pull_request.base.ref }}...origin/${{ github.event.pull_request.head.ref }} > diff.txt
-        echo "diff<<EOF" >> $GITHUB_OUTPUT
-        cat diff.txt >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+    - name: Prepare PR Data
       shell: bash
-    
-    - name: Run PR Refinement
-      shell: bash
-      env:
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        DIFF_CONTENT: ${{ steps.get_diff.outputs.diff }}
       run: |
-        echo '${{ toJson(github.event.pull_request) }}' | jq . | python3 on-pull-request-opened/handler.py > pull_request_description.txt
+        # 1. Filter & trim the PR event to ~3000 chars
+        pull_request_event_trimmed=$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' "$GITHUB_EVENT_PATH" | head -c 3000)
+        echo "$pull_request_event_trimmed" > pr_event_trimmed.json
 
-    - name: Extract PR Number
-      id: extract_pr_number
-      run: echo '${{ github.event.pull_request.number }}' > pr_number.txt
-      shell: bash
+        # 2. Trim the PR template file to ~3000 chars
+        pull_request_template_trimmed=$(head -c 3000 "${{ inputs.pull_request_template }}")
+        echo "$pull_request_template_trimmed" > pr_template_trimmed.txt
 
-    - name: Prepare request body
-      run: |
-        refined=$(cat pull_request_description.txt | sed 's/"/\\"/g')
-        echo '{"body":"'"$refined"'"}' > request_body.json
+        # 3. Extract the PR number for later use
+        pr_number=$(echo "$pull_request_event_trimmed" | jq -r '.pull_request.number')
+        echo "$pr_number" > pr_number.txt
+
+    - name: Generate AI Completion
       shell: bash
+      run: |
+        # Build prompt from trimmed event data & template
+        system_message="You are a helpful AI. Create an improved pull request description."
+        user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nTemplate:\n$(cat pr_template_trimmed.txt)\n\nPlease create an improved PR description."
+        
+        # Prepare JSON for the OpenAI API
+        request_data=$(jq -n \
+          --arg system "$system_message" \
+          --arg user "$user_prompt" \
+          '{
+            "model": "gpt-4",
+            "messages": [
+              {
+                "role": "system",
+                "content": $system
+              },
+              {
+                "role": "user",
+                "content": $user
+              }
+            ]
+          }'
+        )
+
+        # Call OpenAI
+        response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
+          -d "$request_data")
+
+        # Extract the AI-generated content
+        refined_description=$(echo "$response" | jq -r '.choices[0].message.content')
+        echo "$refined_description" > pull_request_description.txt
 
     - name: Update PR Using GitHub Script
       uses: actions/github-script@v7

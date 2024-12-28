@@ -2,7 +2,6 @@ name: On Pull Request Opened
 on:
   pull_request:
     types: [opened]
-
 jobs:
   handle_pull_request_opened:
     permissions: write-all
@@ -10,9 +9,8 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v3    
-
       - name: On Pull Request Opened
         uses: ./on-pull-request-opened
         with:
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
