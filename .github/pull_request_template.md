@@ -3,7 +3,7 @@ name: Pull Request Template
 about: Use this template to request integrating changes to the application.
 title: ''
 labels: ''
-assignees: 'chantzlarge'
+assignees: ''
 
 ---
 
