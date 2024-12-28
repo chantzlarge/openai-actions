@@ -1,4 +1,4 @@
-# On Issue Opened GitHub Action
+# On Issues Opened GitHub Action
 
 TBD
 
@@ -20,7 +20,7 @@ TBD
 
 ## Example Workflow
 
-Add this workflow to your repository under `.github/workflows/on_issue_opened.yml`:
+Add this workflow to your repository under `.github/workflows/on_issues_opened.yml`:
 
 ```yaml
 name: On Issue Opened

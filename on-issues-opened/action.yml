@@ -1,4 +1,4 @@
-name: 'On Issue Opened'
+name: 'On Issues Opened'
 description: 'Triggers on opening an issue and performs specific actions.'
 
 inputs:

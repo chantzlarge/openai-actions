@@ -1,0 +1,16 @@
+name: On Issue Opened
+on:
+  issues:
+    types: [opened]
+jobs:
+  handle_pull_request_opened:
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3    
+      - name: On Issues Opened
+        uses: ./on-issues-opened
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
