@@ -17,10 +17,10 @@ runs:
   using: 'composite'
   steps:
     - name: Install dependencies
+      shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y jq curl
-      shell: bash
 
     - name: Checkout code
       uses: actions/checkout@v3
@@ -28,19 +28,33 @@ runs:
     - name: Generate AI Completion
       shell: bash
       run: |
+        # Read the pull request template content
+        pull_request_template_content=$(cat "${{ inputs.pull_request_template }}")
+
+        # Read the pull request event JSON
+        pull_request_event_data=$(cat "$GITHUB_EVENT_PATH")
+
+        # Construct the JSON request body using jq
+        request_data=$(jq -n \
+          --arg system "You are a helpful assistant. Your task is to generate an improved pull request description." \
+          --arg user "Given the pull request event data:\n$pull_request_event_data\n\nAnd the pull request template:\n$pull_request_template_content\n\nPlease generate an improved pull request description." \
+          '{
+            "model": "gpt-4",
+            "messages": [
+              {
+                "role": "system",
+                "content": $system
+              },
+              {
+                "role": "user",
+                "content": $user
+              }
+            ]
+          }'
+        )
+
+        # Call the OpenAI API
         curl -X POST "https://api.openai.com/v1/chat/completions" \
           -H "Content-Type: application/json" \
           -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
-          -d '{
-            "model": "gpt-4",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a helpful assistant."
-                },
-                {
-                    "role": "user",
-                    "content": "Write a haiku about recursion in programming."
-                }
-            ]
-          }'
+          -d "$request_data"
