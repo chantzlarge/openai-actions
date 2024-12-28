@@ -25,14 +25,32 @@ runs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Prepare PR Data
+      shell: bash
+      run: |
+        # 1. Filter & trim the PR event to ~3000 chars
+        pull_request_event_trimmed=$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' "$GITHUB_EVENT_PATH" | head -c 3000)
+        echo "$pull_request_event_trimmed" > pr_event_trimmed.json
+
+        # 2. Trim the PR template file to ~3000 chars
+        pull_request_template_trimmed=$(head -c 3000 "${{ inputs.pull_request_template }}")
+        echo "$pull_request_template_trimmed" > pr_template_trimmed.txt
+
+        # 3. Extract the PR number for later use
+        pr_number=$(echo "$pull_request_event_trimmed" | jq -r '.pull_request.number')
+        echo "$pr_number" > pr_number.txt
+
     - name: Generate AI Completion
       shell: bash
       run: |
-        pull_request_event_trimmed=$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' "$GITHUB_EVENT_PATH" | head -c 3000)
-        pull_request_template_trimmed=$(head -c 3000 "${{ inputs.pull_request_template }}")
+        # Build prompt from trimmed event data & template
+        system_message="You are a helpful AI. Create an improved pull request description."
+        user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nTemplate:\n$(cat pr_template_trimmed.txt)\n\nPlease create an improved PR description."
+        
+        # Prepare JSON for the OpenAI API
         request_data=$(jq -n \
-          --arg system "You are a helpful AI. Create an improved pull request description." \
-          --arg user "Event:\n$pull_request_event_trimmed\n\nTemplate:\n$pull_request_template_trimmed\n\nPlease create an improved PR description." \
+          --arg system "$system_message" \
+          --arg user "$user_prompt" \
           '{
             "model": "gpt-4",
             "messages": [
@@ -48,7 +66,26 @@ runs:
           }'
         )
 
-        curl -X POST "https://api.openai.com/v1/chat/completions" \
+        # Call OpenAI
+        response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
           -H "Content-Type: application/json" \
           -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
-          -d "$request_data"
+          -d "$request_data")
+
+        # Extract the AI-generated content
+        refined_description=$(echo "$response" | jq -r '.choices[0].message.content')
+        echo "$refined_description" > pull_request_description.txt
+
+    - name: Update PR Using GitHub Script
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const prNumber = parseInt(require('fs').readFileSync('pr_number.txt', 'utf8').trim(), 10);
+          const refined = require('fs').readFileSync('pull_request_description.txt', 'utf8');
+          await github.rest.pulls.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: prNumber,
+            body: refined
+          });
