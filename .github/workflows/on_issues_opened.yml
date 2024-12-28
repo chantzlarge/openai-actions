@@ -3,7 +3,7 @@ on:
   issues:
     types: [opened]
 jobs:
-  handle_pull_request_opened:
+  handle_issues_opened:
     permissions: write-all
     runs-on: ubuntu-latest
     steps:
