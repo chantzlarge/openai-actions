@@ -1,16 +1,18 @@
 name: 'On Pull Request Opened'
-description: 'TBD'
+description: 'Triggers on opening a pull request and performs specific actions.'
+
 inputs:
   github_token:
-    description: 'TBD'
+    description: 'GitHub token for authentication.'
     required: true
   openai_api_key:
-    description: 'TBD'
+    description: 'OpenAI API key for accessing OpenAI services.'
     required: true
   pull_request_template:
-    description: 'TBD'
+    description: 'Path to the pull request template file.'
     required: true
     default: '.github/pull_request_template.md'
+
 runs:
   using: 'composite'
   steps:
@@ -19,5 +21,26 @@ runs:
         sudo apt-get update
         sudo apt-get install -y jq curl
       shell: bash
+
     - name: Checkout code
       uses: actions/checkout@v3
+
+    - name: Generate AI Completion
+      shell: bash
+      run: |
+        curl -X POST "https://api.openai.com/v1/chat/completions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
+          -d '{
+            "model": "gpt-4",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant."
+                },
+                {
+                    "role": "user",
+                    "content": "Write a haiku about recursion in programming."
+                }
+            ]
+          }'
