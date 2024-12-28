@@ -1,72 +1,23 @@
 name: 'On Pull Request Opened'
-description: 'Refine a pull request description using OpenAI and update it on GitHub'
+description: 'TBD'
 inputs:
-  openai_api_key:
-    description: 'OpenAI API key'
-    required: true
   github_token:
-    description: 'GitHub token with permission to update the PR'
+    description: 'TBD'
     required: true
-branding:
-  color: 'blue'
-
+  openai_api_key:
+    description: 'TBD'
+    required: true
+  pull_request_template:
+    description: 'TBD'
+    required: true
+    default: '.github/pull_request_template.md'
 runs:
   using: 'composite'
   steps:
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-
     - name: Install dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        pip install openai jq
+        sudo apt-get update
+        sudo apt-get install -y jq curl
       shell: bash
-
-    - name: Check out code
+    - name: Checkout code
       uses: actions/checkout@v3
-
-    - name: Get diff
-      id: get_diff
-      run: |
-        git fetch origin ${{ github.event.pull_request.base.ref }} --depth=100
-        git fetch origin ${{ github.event.pull_request.head.ref }} --depth=100
-        git diff --shortstat origin/${{ github.event.pull_request.base.ref }}...origin/${{ github.event.pull_request.head.ref }} > diff.txt
-        echo "diff<<EOF" >> $GITHUB_OUTPUT
-        cat diff.txt >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-      shell: bash
-    
-    - name: Run PR Refinement
-      shell: bash
-      env:
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        DIFF_CONTENT: ${{ steps.get_diff.outputs.diff }}
-      run: |
-        echo '${{ toJson(github.event.pull_request) }}' | jq . | python3 on-pull-request-opened/handler.py > pull_request_description.txt
-
-    - name: Extract PR Number
-      id: extract_pr_number
-      run: echo '${{ github.event.pull_request.number }}' > pr_number.txt
-      shell: bash
-
-    - name: Prepare request body
-      run: |
-        refined=$(cat pull_request_description.txt | sed 's/"/\\"/g')
-        echo '{"body":"'"$refined"'"}' > request_body.json
-      shell: bash
-
-    - name: Update PR Using GitHub Script
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ inputs.github_token }}
-        script: |
-          const prNumber = parseInt(require('fs').readFileSync('pr_number.txt', 'utf8').trim(), 10);
-          const refined = require('fs').readFileSync('pull_request_description.txt', 'utf8');
-          await github.rest.pulls.update({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-            body: refined
-          });
