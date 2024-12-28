@@ -1,13 +1,10 @@
-# On Pull Request Opened GitHub Action
+# On Issue Opened GitHub Action
 
-This GitHub Action refines pull request descriptions using OpenAI's API. It integrates PR metadata, such as title, labels, assignees, and git diff, to generate a clear and comprehensive PR description. The refined description is automatically updated on the pull request.
+TBD
 
 ## Features
 
-- Fetches and analyzes pull request metadata (e.g., title, labels, assignees, diff).
-- Integrates a custom PR template if present.
-- Uses OpenAI to refine and enhance the PR description.
-- Automatically updates the PR description with the refined content.
+TBD
 
 ## Inputs
 
@@ -15,17 +12,18 @@ This GitHub Action refines pull request descriptions using OpenAI's API. It inte
 |-------------------|--------------------------------------------------|----------|
 | `openai_api_key`  | Your OpenAI API key                             | Yes      |
 | `github_token`    | GitHub token with permission to update the PR   | Yes      |
+| `issue_template`    | TBD   | No      |
 
 ## Outputs
 
-This action does not have explicit outputs but directly updates the pull request's description.
+TBD
 
 ## Example Workflow
 
-Add this workflow to your repository under `.github/workflows/on_pull_request_opened.yml`:
+Add this workflow to your repository under `.github/workflows/on_issue_opened.yml`:
 
 ```yaml
-name: On Pull Request Opened
+name: On Issue Opened
 on:
   pull_request:
     types: [opened]
@@ -34,11 +32,12 @@ jobs:
   refine_and_update:
     runs-on: ubuntu-latest
     steps:
-      - name: Use On Pull Request Opened Action
-        uses: ./on-pull-request-opened
+      - name: Use On Issue Opened Action
+        uses: ./on-issue-opened
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_template: ./github/ISSUE_TEMPLATE/issue_template.md
 ```
 
 ## Repository Structure

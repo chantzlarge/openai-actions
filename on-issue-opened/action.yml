@@ -1,0 +1,84 @@
+name: 'On Issue Opened'
+description: 'Triggers on opening an issue and performs specific actions.'
+
+inputs:
+  github_token:
+    description: 'GitHub token for authentication.'
+    required: true
+  openai_api_key:
+    description: 'OpenAI API key for accessing OpenAI services.'
+    required: true
+  issue_template:
+    description: 'Path to the issue template file.'
+    required: true
+    default: '.github/ISSUE_TEMPLATE/issue_template.md'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq curl
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Prepare Issue Data
+      shell: bash
+      run: |
+        issue_event_trimmed=$(jq '{ issue: { title: .issue.title, body: .issue.body, number: .issue.number } }' "$GITHUB_EVENT_PATH" | head -c 3000)
+        echo "$issue_event_trimmed" > issue_event_trimmed.json
+
+        issue_template_trimmed=$(head -c 3000 "${{ inputs.issue_template }}")
+        echo "$issue_template_trimmed" > issue_template_trimmed.txt
+
+        issue_number=$(echo "$issue_event_trimmed" | jq -r '.issue.number')
+        echo "$issue_number" > issue_number.txt
+
+    - name: Generate AI Completion
+      shell: bash
+      run: |
+        system_message="You are a helpful AI. Create an improved issue description."
+        user_prompt="Event:\n$(cat issue_event_trimmed.json)\n\nTemplate:\n$(cat issue_template_trimmed.txt)\n\nPlease create an improved issue description."
+
+        request_data=$(jq -n \
+          --arg system "$system_message" \
+          --arg user "$user_prompt" \
+          '{
+            "model": "gpt-4",
+            "messages": [
+              {
+                "role": "system",
+                "content": $system
+              },
+              {
+                "role": "user",
+                "content": $user
+              }
+            ]
+          }'
+        )
+
+        response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+          -H "Content-Type: application/json" \
+          -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
+          -d "$request_data")
+
+        refined_description=$(echo "$response" | jq -r '.choices[0].message.content')
+        echo "$refined_description" > issue_description.txt
+
+    - name: Update Issue Using GitHub Script
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const issueNumber = parseInt(require('fs').readFileSync('issue_number.txt', 'utf8').trim(), 10);
+          const refined = require('fs').readFileSync('issue_description.txt', 'utf8');
+          await github.rest.issues.update({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issueNumber,
+            body: refined
+          });
