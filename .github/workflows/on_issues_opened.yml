@@ -1,4 +1,4 @@
-name: On Issue Opened
+name: On Issues Opened
 on:
   issues:
     types: [opened]
