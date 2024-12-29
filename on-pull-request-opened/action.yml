@@ -12,41 +12,41 @@ inputs:
 runs:
   using: 'composite'
   steps:
-
     - name: Checkout code
       uses: actions/checkout@v3
 
     - name: Prepare PR Data and Generate AI Completion in Docker
-      uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
+      uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq:latest
       with:
-        entrypoint: |
-          /bin/bash -c "
-            # Prepare pull request event data
-            pr_event=\$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' \"/github/workspace/\${GITHUB_EVENT_PATH}\")
-            echo \"\$pr_event\" > /github/workspace/pr_event.json
-            pr_number=\$(echo \"\$pr_event\" | jq -r '.pull_request.number')
-            echo \"\$pr_number\" > /github/workspace/pr_number.txt
+        entrypoint: /bin/bash
+        args: >-
+          -c "
+          # Prepare pull request event data
+          pr_event=\$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' \"/github/workspace/\${GITHUB_EVENT_PATH}\")
+          echo \"\$pr_event\" > /github/workspace/pr_event.json
+          pr_number=\$(echo \"\$pr_event\" | jq -r '.pull_request.number')
+          echo \"\$pr_number\" > /github/workspace/pr_number.txt
 
-            # Generate AI completion for the pull request description
-            system_message=\"You are a helpful AI. Create an improved pull request description.\"
-            user_prompt=\"Event:\n\$(cat /github/workspace/pr_event.json)\n\nPlease create an improved PR description.\"
-            request_data=\$(jq -n \
-              --arg system \"\$system_message\" \
-              --arg user \"\$user_prompt\" \
-              '{
-                \"model\": \"gpt-4\",
-                \"messages\": [
-                  { \"role\": \"system\", \"content\": \$system },
-                  { \"role\": \"user\", \"content\": \$user }
-                ]
-              }'
-            )
-            response=\$(curl -s -X POST \"https://api.openai.com/v1/chat/completions\" \
-              -H \"Content-Type: application/json\" \
-              -H \"Authorization: Bearer ${{ inputs.openai_api_key }}\" \
-              -d \"\$request_data\")
-            refined_description=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
-            echo \"\$refined_description\" > /github/workspace/pull_request_description.txt
+          # Generate AI completion for the pull request description
+          system_message=\"You are a helpful AI. Create an improved pull request description.\"
+          user_prompt=\"Event:\n\$(cat /github/workspace/pr_event.json)\n\nPlease create an improved PR description.\"
+          request_data=\$(jq -n \
+            --arg system \"\$system_message\" \
+            --arg user \"\$user_prompt\" \
+            '{
+              \"model\": \"gpt-4\",
+              \"messages\": [
+                { \"role\": \"system\", \"content\": \$system },
+                { \"role\": \"user\", \"content\": \$user }
+              ]
+            }'
+          )
+          response=\$(curl -s -X POST \"https://api.openai.com/v1/chat/completions\" \
+            -H \"Content-Type: application/json\" \
+            -H \"Authorization: Bearer ${{ inputs.openai_api_key }}\" \
+            -d \"\$request_data\")
+          refined_description=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
+          echo \"\$refined_description\" > /github/workspace/pull_request_description.txt
           "
 
     - name: Update PR Using GitHub Script
