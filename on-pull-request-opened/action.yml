@@ -16,6 +16,16 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Cache apt
+      uses: actions/cache@v3
+      with:
+        path: |
+          /var/lib/apt/lists
+          /var/cache/apt/archives
+        key: ${{ runner.os }}-apt-cache
+        restore-keys: |
+          ${{ runner.os }}-apt-cache
+
     - name: Install dependencies
       shell: bash
       run: |
