@@ -9,7 +9,7 @@ inputs:
     description: 'OpenAI API key for accessing OpenAI services.'
     required: true
   pull_request_template:
-    description: 'Path to optional pull request template file.'
+    description: 'Path to an optional PR template file.'
     required: false
     default: ''
 
@@ -20,7 +20,7 @@ runs:
       uses: actions/checkout@v3
 
     - name: Prepare PR Data and Generate AI Completion in Docker
-      uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq:latest
+      uses: docker://registry.gitlab-ci-utils/curl-jq:latest
       with:
         entrypoint: /bin/sh
         args: >
@@ -69,7 +69,7 @@ runs:
             refined_description=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
             echo \"\$refined_description\" > pull_request_description.txt
           "
-      # Pass your inputs as environment variables so secrets won't be half-redacted in the command
+      # Pass secrets as env vars so GitHub won't partially censor them in your command
       env:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         PULL_REQUEST_TEMPLATE: ${{ inputs.pull_request_template }}
