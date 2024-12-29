@@ -16,7 +16,7 @@ runs:
       uses: actions/checkout@v3
 
     - name: Prepare PR Data and Generate AI Completion in Docker
-      uses: docker://registry.gitlab-ci-utils/curl-jq:latest
+      uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq:latest
       with:
         entrypoint: /bin/sh
         args: >
