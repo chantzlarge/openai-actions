@@ -19,12 +19,37 @@ runs:
     - name: Prepare Data and Generate AI Completion in Docker
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
-        # Remove or replace the default entrypoint
         entrypoint: /bin/sh
-        # Pass commands as a single string to `sh -c`
         args: |- 
           -c "
-          curl -V
+          system_message="You are a helpful AI. Create an improved pull request description."
+          user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nTemplate:\n$(cat pr_template_trimmed.txt)\n\nPlease create an improved PR description."
+          
+          request_data=$(jq -n \
+            --arg system "$system_message" \
+            --arg user "$user_prompt" \
+            '{
+              "model": "gpt-4",
+              "messages": [
+                {
+                  "role": "system",
+                  "content": $system
+                },
+                {
+                  "role": "user",
+                  "content": $user
+                }
+              ]
+            }'
+          )
+
+          response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
+            -d "$request_data")
+
+          refined_description=$(echo "$response" | jq -r '.choices[0].message.content')
+          echo "$refined_description" > pull_request_description.txt
           "
 
     # - name: Update Issue Using GitHub Script
