@@ -10,7 +10,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3    
       - name: On Pull Request Opened
-        uses: ./on-pull-request-opened
+        uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
