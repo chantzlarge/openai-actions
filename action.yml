@@ -8,6 +8,10 @@ inputs:
   openai_api_key:
     description: 'OpenAI API key for accessing OpenAI services.'
     required: true
+  pull_request_template:
+    description: 'Path to the pull request template to read.'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -22,45 +26,45 @@ runs:
       with:
         entrypoint: /bin/sh
         args: |-
-          -c "
-          pull_request_event_trimmed=$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' "$GITHUB_EVENT_PATH" | head -c 3000)
-          echo "$pull_request_event_trimmed" > pr_event_trimmed.json
-          
-          pull_request_template_trimmed=$(head -c 3000 "${{ inputs.pull_request_template }}")
-          echo "$pull_request_template_trimmed" > pr_template_trimmed.txt
-          
-          pull_number=$(echo "$pull_request_event_trimmed" | jq -r '.pull_request.number')
-          echo "$pull_number" > pull_number.txt
-          
-          system_message="You are a helpful AI. Create an improved pull request description."
-          user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nTemplate:\n$(cat pr_template_trimmed.txt)\n\nPlease create an improved PR description."
+          -c '
+            pull_request_event_trimmed=$(jq "{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }" "$GITHUB_EVENT_PATH" | head -c 3000)
+            echo "$pull_request_event_trimmed" > pr_event_trimmed.json
 
-          data=$(jq -n \
-            --arg system "$system_message" \
-            --arg user "$user_prompt" \
-            '{
-              "model": "gpt-4",
-              "messages": [
-                {
-                  "role": "system",
-                  "content": $system
-                },
-                {
-                  "role": "user",
-                  "content": $user
-                }
-              ]
-            }'
-          )
+            pull_request_template_trimmed=$(head -c 3000 "${{ inputs.pull_request_template }}")
+            echo "$pull_request_template_trimmed" > pr_template_trimmed.txt
 
-          response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
-            -d "$data")
+            pull_number=$(echo "$pull_request_event_trimmed" | jq -r ".pull_request.number")
+            echo "$pull_number" > pull_number.txt
 
-          body=$(echo "$response" | jq -r '.choices[0].message.content')
-          echo "$body" > body.txt
-          "
+            system_message="You are a helpful AI. Create an improved pull request description."
+            user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nTemplate:\n$(cat pr_template_trimmed.txt)\n\nPlease create an improved PR description."
+
+            data=$(jq -n \
+              --arg system "$system_message" \
+              --arg user "$user_prompt" \
+              "{
+                \"model\": \"gpt-4\",
+                \"messages\": [
+                  {
+                    \"role\": \"system\",
+                    \"content\": \$system
+                  },
+                  {
+                    \"role\": \"user\",
+                    \"content\": \$user
+                  }
+                ]
+              }"
+            )
+
+            response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
+              -d "$data")
+
+            body=$(echo "$response" | jq -r ".choices[0].message.content")
+            echo "$body" > body.txt
+          '
 
     - name: Update PR Using GitHub Script
       if: ${{ github.event_name == 'pull_request' }}
