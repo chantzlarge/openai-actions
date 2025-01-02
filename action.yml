@@ -19,8 +19,13 @@ runs:
     - name: Prepare Data and Generate AI Completion in Docker
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
-        entrypoint: /bin/bash
-        args: curl -V
+        # Remove or replace the default entrypoint
+        entrypoint: /bin/sh
+        # Pass commands as a single string to `sh -c`
+        args: |- 
+          -c "
+          curl -V
+          "
 
     # - name: Update Issue Using GitHub Script
     #   uses: actions/github-script@v7
