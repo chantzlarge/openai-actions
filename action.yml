@@ -26,7 +26,7 @@ runs:
       if: ${{ github.event_name == 'pull_request' }}
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
-        entrypoint: /bin/bash
+        entrypoint: /bin/sh
         args: |
           curl -s -X POST 'https://api.openai.com/v1/chat/completions' \
             -H 'Content-Type: application/json' \
