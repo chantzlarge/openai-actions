@@ -7,7 +7,7 @@ inputs:
     required: true
   model:
     default: 'gpt-4'
-    description: 'OpenAI API key for accessing OpenAI services.'
+    description: 'Model to use for OpenAI completions.'
     required: true
   openai_api_key:
     description: 'OpenAI API key for accessing OpenAI services.'
@@ -27,42 +27,49 @@ runs:
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
         entrypoint: /bin/sh
-        args: |- 
+        # Use a single, large double-quoted string. Inside it, we can still embed single quotes or \$ expansions.
+        args: >
           -c "
-          pull_request_event_trimmed=$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' "$GITHUB_EVENT_PATH" | head -c 3000)
-          echo "$pull_request_event_trimmed" > pr_event_trimmed.json
+            # 1. Trim the pull request JSON
+            pull_request_event_trimmed=\$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' \"\$GITHUB_EVENT_PATH\" | head -c 3000)
+            echo \"\$pull_request_event_trimmed\" > pr_event_trimmed.json
 
-          pull_number=$(echo "$pull_request_event_trimmed" | jq -r '.pull_request.number')
-          echo "$pull_number" > pull_number.txt
+            # 2. Grab the PR number
+            pull_number=\$(echo \"\$pull_request_event_trimmed\" | jq -r '.pull_request.number')
+            echo \"\$pull_number\" > pull_number.txt
 
-          system_message="You are a helpful AI. Create an improved pull request description."
-          user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nlease create an improved PR description."
-          
-          request_data=$(jq -n \
-            --arg system "$system_message" \
-            --arg user "$user_prompt" \
-            '{
-              "model": "gpt-4",
-              "messages": [
-                {
-                  "role": "system",
-                  "content": $system
-                },
-                {
-                  "role": "user",
-                  "content": $user
-                }
-              ]
-            }'
-          )
+            # 3. Build your system + user prompts
+            system_message='You are a helpful AI. Create an improved pull request description.'
+            user_prompt=\"Event:\n\$(cat pr_event_trimmed.json)\n\nPlease create an improved PR description.\"
 
-          response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
-            -d "$request_data")
+            # 4. Construct JSON for the OpenAI request
+            request_data=\$(jq -n \
+              --arg system \"\$system_message\" \
+              --arg user \"\$user_prompt\" \
+              '{
+                \"model\": \"gpt-4\",
+                \"messages\": [
+                  { \"role\": \"system\", \"content\": \$system },
+                  { \"role\": \"user\", \"content\": \$user }
+                ]
+              }'
+            )
 
-          refined_description=$(echo "$response" | jq -r '.choices[0].message.content')
-          echo "$refined_description" > pull_request_description.txt
+            # 5. Call OpenAI
+            response=\$(curl -s -X POST \"https://api.openai.com/v1/chat/completions\" \
+              -H 'Content-Type: application/json' \
+              -H 'Authorization: Bearer \${{ inputs.openai_api_key }}' \
+              -d \"\$request_data\")
+
+            # 6. Extract the improved PR description
+            refined_description=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
+            echo \"\$refined_description\" > pull_request_description.txt
+
+            # For debugging, uncomment these lines:
+            # echo \"---\"
+            # echo \"\$response\"
+            # echo \"---\"
+            # ls -al
           "
 
     - name: Update PR Using GitHub Script
@@ -74,6 +81,7 @@ runs:
           const fs = require('fs');
           const pullNumber = parseInt(fs.readFileSync('pull_number.txt', 'utf8').trim(), 10);
           const body = fs.readFileSync('pull_request_description.txt', 'utf8');
+
           await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
