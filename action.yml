@@ -21,8 +21,10 @@ runs:
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
         entrypoint: /bin/bash
+        # Use double quotes here so that we can use single quotes or escaped variables inside
         args: >
           -c "
+            # Use backslash-escaped \$ and parentheses for command substitution
             pull_request_event_trimmed=\$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' \"\$GITHUB_EVENT_PATH\" | head -c 3000)
             echo \"\$pull_request_event_trimmed\" > pull_request_event_trimmed.json
 
@@ -52,7 +54,7 @@ runs:
 
             response=\$(curl -s -X POST \"https://api.openai.com/v1/chat/completions\" \
               -H 'Content-Type: application/json' \
-              -H 'Authorization: Bearer ${{ inputs.openai_api_key }}' \
+              -H 'Authorization: Bearer \${{ inputs.openai_api_key }}' \
               -d \"\$data\")
 
             body=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
@@ -65,9 +67,9 @@ runs:
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const pullNumber = parseInt(require('fs').readFileSync('pull_number.txt', 'utf8').trim(), 10);
-          const body = require('fs').readFileSync('body.txt', 'utf8');
-
+          const fs = require('fs');
+          const pullNumber = parseInt(fs.readFileSync('pull_number.txt', 'utf8').trim(), 10);
+          const body = fs.readFileSync('body.txt', 'utf8');
           await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
