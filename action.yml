@@ -21,21 +21,21 @@ runs:
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
         entrypoint: /bin/bash
-        args: |-
-          -c '
-            pull_request_event_trimmed=$(jq "{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }" "$GITHUB_EVENT_PATH" | head -c 3000)
-            echo "$pull_request_event_trimmed" > pull_request_event_trimmed.json
+        args: >
+          -c "
+            pull_request_event_trimmed=\$(jq '{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }' \"\$GITHUB_EVENT_PATH\" | head -c 3000)
+            echo \"\$pull_request_event_trimmed\" > pull_request_event_trimmed.json
 
-            pull_number=$(echo "$pull_request_event_trimmed" | jq -r ".pull_request.number")
-            echo "$pull_number" > pull_number.txt
+            pull_number=\$(echo \"\$pull_request_event_trimmed\" | jq -r '.pull_request.number')
+            echo \"\$pull_number\" > pull_number.txt
 
-            system_message="You are a helpful AI. Create an improved pull request description."
-            user_prompt="Event:\n$(cat pull_request_event_trimmed.json)\nPlease create an improved PR description."
+            system_message='You are a helpful AI. Create an improved pull request description.'
+            user_prompt=\"Event:\n\$(cat pull_request_event_trimmed.json)\nPlease create an improved PR description.\"
 
-            data=$(jq -n \
-              --arg system "$system_message" \
-              --arg user "$user_prompt" \
-              "{
+            data=\$(jq -n \
+              --arg system \"\$system_message\" \
+              --arg user \"\$user_prompt\" \
+              '{
                 \"model\": \"gpt-4\",
                 \"messages\": [
                   {
@@ -47,17 +47,17 @@ runs:
                     \"content\": \$user
                   }
                 ]
-              }"
+              }'
             )
 
-            response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
-              -d "$data")
+            response=\$(curl -s -X POST \"https://api.openai.com/v1/chat/completions\" \
+              -H 'Content-Type: application/json' \
+              -H 'Authorization: Bearer ${{ inputs.openai_api_key }}' \
+              -d \"\$data\")
 
-            body=$(echo "$response" | jq -r ".choices[0].message.content")
-            echo "$body" > body.txt
-          '
+            body=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
+            echo \"\$body\" > body.txt
+          "
 
     - name: Update PR Using GitHub Script
       if: ${{ github.event_name == 'pull_request' }}
@@ -67,6 +67,7 @@ runs:
         script: |
           const pullNumber = parseInt(require('fs').readFileSync('pull_number.txt', 'utf8').trim(), 10);
           const body = require('fs').readFileSync('body.txt', 'utf8');
+
           await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
