@@ -20,7 +20,7 @@ runs:
       if: ${{ github.event_name == 'pull_request' }}
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
-        entrypoint: /bin/sh
+        entrypoint: /bin/bash
         args: |-
           -c '
             pull_request_event_trimmed=$(jq "{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }" "$GITHUB_EVENT_PATH" | head -c 3000)
