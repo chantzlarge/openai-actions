@@ -16,7 +16,6 @@ inputs:
 runs:
   using: 'composite'
   steps:
-
     - name: Checkout code
       uses: actions/checkout@v3
 
@@ -27,9 +26,17 @@ runs:
         entrypoint: /bin/sh
         args: |-
           -c '
-            pull_request_event_trimmed=$(jq "{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }" "$GITHUB_EVENT_PATH" | head -c 3000)
+            # Safely run jq with single quotes by escaping them as \'...\'
+            pull_request_event_trimmed=$(jq \'{
+              pull_request: {
+                title: .pull_request.title,
+                body: .pull_request.body,
+                number: .pull_request.number
+              }
+            }\' "$GITHUB_EVENT_PATH" | head -c 3000)
             echo "$pull_request_event_trimmed" > pr_event_trimmed.json
 
+            # If you have a file path in inputs.pull_request_template, read it
             pull_request_template_trimmed=$(head -c 3000 "${{ inputs.pull_request_template }}")
             echo "$pull_request_template_trimmed" > pr_template_trimmed.txt
 
