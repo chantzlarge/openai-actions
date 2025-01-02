@@ -19,35 +19,43 @@ runs:
     - name: Prepare Data and Generate AI Completion in Docker
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
-        entrypoint: /bin/bash 
-        args: |
+        entrypoint: /bin/bash
+        # We use a multi-line scalar block for args, so the whole script
+        # is passed as a single argument after `-c`.
+        args: >
           -c "
-            # Prepare issue event data
-            issue_event=\$(jq '{ issue: { title: .issue.title, body: .issue.body, number: .issue.number } }' \"/github/workspace/\${GITHUB_EVENT_PATH}\")
-            echo \"\$issue_event\" > /github/workspace/issue_event.json
-            issue_number=\$(echo \"\$issue_event\" | jq -r '.issue.number')
-            echo \"\$issue_number\" > /github/workspace/issue_number.txt
+          # --- Prepare issue event data ---
+          issue_event=\$(jq '{ issue: { title: .issue.title, body: .issue.body, number: .issue.number } }' '/github/workspace/\${GITHUB_EVENT_PATH}')
+          echo \"\$issue_event\" > /github/workspace/issue_event.json
 
-            # Generate AI completion for the issue description
-            system_message=\"You are a helpful AI. Create an improved issue description.\"
-            user_prompt=\"Event:\n\$(cat /github/workspace/issue_event.json)\n\nPlease create an improved issue description.\"
-            request_data=\$(jq -n \
-              --arg system \"\$system_message\" \
-              --arg user \"\$user_prompt\" \
-              '{
-                \"model\": \"gpt-4\",
-                \"messages\": [
-                  { \"role\": \"system\", \"content\": \$system },
-                  { \"role\": \"user\", \"content\": \$user }
-                ]
-              }'
-            )
-            response=\$(curl -s -X POST \"https://api.openai.com/v1/chat/completions\" \
-              -H \"Content-Type: application/json\" \
-              -H \"Authorization: Bearer ${{ inputs.openai_api_key }}\" \
-              -d \"\$request_data\")
-            refined_description=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
-            echo \"\$refined_description\" > /github/workspace/issue_description.txt
+          issue_number=\$(echo \"\$issue_event\" | jq -r '.issue.number')
+          echo \"\$issue_number\" > /github/workspace/issue_number.txt
+
+          # --- Generate AI completion for the issue description ---
+          system_message='You are a helpful AI. Create an improved issue description.'
+
+          user_prompt=\"Event:\n\$(cat /github/workspace/issue_event.json)\n\nPlease create an improved issue description.\"
+
+          request_data=\$(jq -n \
+            --arg system \"\$system_message\" \
+            --arg user \"\$user_prompt\" \
+            '{
+              \"model\": \"gpt-4\",
+              \"messages\": [
+                { \"role\": \"system\", \"content\": \$system },
+                { \"role\": \"user\", \"content\": \$user }
+              ]
+            }'
+          )
+
+          response=\$(curl -s -X POST 'https://api.openai.com/v1/chat/completions' \
+            -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer ${{ inputs.openai_api_key }}' \
+            -d \"\$request_data\")
+
+          refined_description=\$(echo \"\$response\" | jq -r '.choices[0].message.content')
+
+          echo \"\$refined_description\" > /github/workspace/issue_description.txt
           "
 
     - name: Update Issue Using GitHub Script
@@ -55,8 +63,10 @@ runs:
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const issueNumber = parseInt(require('fs').readFileSync('issue_number.txt', 'utf8').trim(), 10);
-          const refined = require('fs').readFileSync('issue_description.txt', 'utf8');
+          const fs = require('fs');
+          const issueNumber = parseInt(fs.readFileSync('issue_number.txt', 'utf8').trim(), 10);
+          const refined = fs.readFileSync('issue_description.txt', 'utf8');
+
           await github.rest.issues.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
