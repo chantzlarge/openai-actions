@@ -31,7 +31,7 @@ runs:
           curl -s -X POST 'https://api.openai.com/v1/chat/completions' \
             -H 'Content-Type: application/json' \
             -H 'Authorization: Bearer ${{ inputs.openai_api_key }}' \
-            -d '{"model":"${{ inputs.model }}","messages":[{"role":"system","content":"You are a helpful AI. Create an improved pull request description."},{"role":"user","content:"pull_request:\n\n${{ .pull_request }}\n\nPlease create an improved PR description."}]}' \
+            -d '{"model":"${{ inputs.model }}","messages":[{"role":"system","content":"You are a helpful AI. Create an improved pull request description."},{"role":"user","content:"pull_request:\n\n .pull_request \n\nPlease create an improved PR description."}]}' \
             >> $GITHUB_OUTPUT
 
     - name: Update PR Using GitHub Script
