@@ -24,13 +24,13 @@ runs:
         args: |-
           -c '
             pull_request_event_trimmed=$(jq "{ pull_request: { title: .pull_request.title, body: .pull_request.body, number: .pull_request.number } }" "$GITHUB_EVENT_PATH" | head -c 3000)
-            echo "$pull_request_event_trimmed" > pr_event_trimmed.json
+            echo "$pull_request_event_trimmed" > pull_request_event_trimmed.json
 
             pull_number=$(echo "$pull_request_event_trimmed" | jq -r ".pull_request.number")
             echo "$pull_number" > pull_number.txt
 
             system_message="You are a helpful AI. Create an improved pull request description."
-            user_prompt="Event:\n$(cat pr_event_trimmed.json)\nPlease create an improved PR description."
+            user_prompt="Event:\n$(cat pull_request_event_trimmed.json)\nPlease create an improved PR description."
 
             data=$(jq -n \
               --arg system "$system_message" \
