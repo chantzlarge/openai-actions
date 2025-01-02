@@ -73,7 +73,7 @@ runs:
         script: |
           const fs = require('fs');
           const pullNumber = parseInt(fs.readFileSync('pull_number.txt', 'utf8').trim(), 10);
-          const body = fs.readFileSync('body.txt', 'utf8');
+          const body = fs.readFileSync('pull_request_description.txt', 'utf8');
           await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
