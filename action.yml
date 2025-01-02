@@ -17,15 +17,16 @@ runs:
       uses: actions/checkout@v3
 
     - name: Prepare Data and Generate AI Completion in Docker
+      if: ${{ github.event_name == 'pull_request' }}
       uses: docker://registry.gitlab.com/gitlab-ci-utils/curl-jq
       with:
         entrypoint: /bin/sh
-        args: |- 
+        args: |-
           -c "
           system_message="You are a helpful AI. Create an improved pull request description."
           user_prompt="Event:\n$(cat pr_event_trimmed.json)\n\nTemplate:\n$(cat pr_template_trimmed.txt)\n\nPlease create an improved PR description."
-          
-          request_data=$(jq -n \
+
+          data=$(jq -n \
             --arg system "$system_message" \
             --arg user "$user_prompt" \
             '{
@@ -46,24 +47,23 @@ runs:
           response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ inputs.openai_api_key }}" \
-            -d "$request_data")
+            -d "$data")
 
-          refined_description=$(echo "$response" | jq -r '.choices[0].message.content')
-          echo "$refined_description" > pull_request_description.txt
+          body=$(echo "$response" | jq -r '.choices[0].message.content')
+          echo "$body" > body.txt
           "
 
-    - name: Update Issue Using GitHub Script
+    - name: Update PR Using GitHub Script
+      if: ${{ github.event_name == 'pull_request' }}
       uses: actions/github-script@v7
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const fs = require('fs');
-          const issueNumber = parseInt(fs.readFileSync('issue_number.txt', 'utf8').trim(), 10);
-          const refined = fs.readFileSync('issue_description.txt', 'utf8');
-
-          await github.rest.issues.update({
+          const pullNumber = parseInt(require('fs').readFileSync('pull_number.txt', 'utf8').trim(), 10);
+          const body = require('fs').readFileSync('body.txt', 'utf8');
+          await github.rest.pulls.update({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            issue_number: issueNumber,
-            body: refined
+            pull_number: pullNumber,
+            body: body
           });
